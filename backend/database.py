@@ -1,7 +1,11 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "seed_succeed.db")
+# Use /tmp on Render (or local dir for development)
+DB_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(__file__), "seed_succeed.db"),
+)
 
 
 def get_connection():

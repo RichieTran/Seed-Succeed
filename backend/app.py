@@ -1,13 +1,17 @@
 import json
+import os
 import uuid
 from datetime import datetime, date
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 from database import get_connection, init_db
 
-app = Flask(__name__)
+# Serve React build from ../dist
+DIST_DIR = os.path.join(os.path.dirname(__file__), "..", "dist")
+
+app = Flask(__name__, static_folder=DIST_DIR, static_url_path="")
 CORS(app)
 
 
@@ -427,9 +431,25 @@ def reset_state():
     return jsonify({"success": True})
 
 
+# ── Serve React frontend ─────────────────────────────────────────────────────
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_frontend(path):
+    """Serve React build files. API routes are matched first by Flask."""
+    file_path = os.path.join(DIST_DIR, path)
+    if path and os.path.isfile(file_path):
+        return send_from_directory(DIST_DIR, path)
+    return send_from_directory(DIST_DIR, "index.html")
+
+
+# ── Initialize DB on import (for production) ────────────────────────────────
+
+init_db()
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    init_db()
-    print("Database initialized. Starting server on http://localhost:5001")
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get("PORT", 5001))
+    print(f"Server starting on http://localhost:{port}")
+    app.run(debug=True, host="0.0.0.0", port=port)

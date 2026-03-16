@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: seed-succeed
+    runtime: python
+    buildCommand: bash build.sh
+    startCommand: cd backend && gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: NODE_VERSION
+        value: 20

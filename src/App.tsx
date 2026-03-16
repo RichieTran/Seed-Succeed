@@ -8,9 +8,11 @@ import { GardenView } from './views/GardenView';
 import { DailyView } from './views/DailyView';
 import { HabitDetailView } from './views/HabitDetailView';
 import { SettingsView } from './views/SettingsView';
+import { PlantPreview } from './views/PlantPreview';
 
 function AppContent() {
   const [view, setView] = useState<View>({ name: 'garden' });
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleSelectHabit = (habitId: string) => {
     setView({ name: 'detail', habitId });
@@ -20,9 +22,17 @@ function AppContent() {
     setView({ name: 'garden' });
   };
 
+  if (showPreview) {
+    return (
+      <div className="flex flex-col min-h-dvh bg-white">
+        <PlantPreview onClose={() => setShowPreview(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-dvh bg-white">
-      {view.name !== 'detail' && <Header />}
+      {view.name !== 'detail' && <Header onShowGallery={() => setShowPreview(true)} />}
 
       <AnimatePresence mode="wait">
         <motion.div

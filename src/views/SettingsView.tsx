@@ -136,22 +136,22 @@ export function SettingsView() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full"
+            className="bg-white rounded-2xl p-7 mx-4 max-w-sm w-full"
           >
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Reset all data?</h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">Reset all data?</h3>
+            <p className="text-sm text-gray-500 mb-6">
               This will permanently delete all your habits, plants, and progress. This cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowResetConfirm(false)}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 font-medium"
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReset}
-                className="flex-1 py-2 rounded-xl bg-red-500 text-white font-medium"
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium"
               >
                 Reset Everything
               </button>

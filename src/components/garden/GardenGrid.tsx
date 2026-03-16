@@ -9,7 +9,7 @@ export function GardenGrid({ onSelectHabit }: GardenGridProps) {
   const { habits, getPlantState, getStreakInfo } = useHabits();
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4">
+    <div className="flex flex-wrap justify-center gap-3 p-4">
       {habits.map((habit, i) => {
         const plantState = getPlantState(habit.id);
         const streakInfo = getStreakInfo(habit.id);

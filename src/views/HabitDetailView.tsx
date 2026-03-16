@@ -65,7 +65,7 @@ export function HabitDetailView({ habitId, onBack }: HabitDetailViewProps) {
       <ConfettiOverlay active={showConfetti} onComplete={() => setShowConfetti(false)} />
 
       {/* Top bar */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-sm border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-sm border-b border-gray-100 px-5 py-4 flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-1 text-gray-600 hover:text-gray-800">
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 18l-6-6 6-6" />
@@ -142,8 +142,8 @@ export function HabitDetailView({ habitId, onBack }: HabitDetailViewProps) {
       </div>
 
       {/* Stats */}
-      <div className="px-4 max-w-lg mx-auto space-y-4 pb-24">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="w-full px-4 space-y-4 pb-24 flex flex-col items-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-md">
           <StatCard label="Current Streak" value={`${streakInfo.current}`} icon="🔥" />
           <StatCard label="Longest Streak" value={`${streakInfo.longest}`} icon="🏆" />
           <StatCard label="Total Done" value={`${totalCompletions}`} icon="✅" />
@@ -151,7 +151,7 @@ export function HabitDetailView({ habitId, onBack }: HabitDetailViewProps) {
         </div>
 
         {/* Calendar heatmap */}
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
+        <div className="bg-white rounded-xl p-4 border border-gray-100 w-full max-w-md">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Last 90 Days</h3>
           <div className="grid grid-cols-[repeat(13,1fr)] gap-1">
             {last90.map((date) => {
@@ -189,16 +189,16 @@ export function HabitDetailView({ habitId, onBack }: HabitDetailViewProps) {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full"
+            className="bg-white rounded-2xl p-7 mx-4 max-w-sm w-full"
           >
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Archive this habit?</h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">Archive this habit?</h3>
+            <p className="text-sm text-gray-500 mb-6">
               Your plant will be removed from the garden but your progress is saved.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 font-medium"
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium"
               >
                 Cancel
               </button>
@@ -207,7 +207,7 @@ export function HabitDetailView({ habitId, onBack }: HabitDetailViewProps) {
                   archiveHabit(habitId);
                   onBack();
                 }}
-                className="flex-1 py-2 rounded-xl bg-red-500 text-white font-medium"
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium"
               >
                 Archive
               </button>

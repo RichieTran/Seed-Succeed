@@ -1,21 +1,17 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { GrowthStage } from '../types';
 import type {
   Habit,
   Completion,
   PlantState,
-  AppState,
   UserSettings,
   CustomFrequency,
   PlantColor,
   Frequency,
 } from '../types';
-import { loadState, saveState } from '../utils/storage';
 import { todayStr } from '../utils/dates';
-import { calculateStreak } from '../utils/streaks';
-import { getStreakMultiplier, calculateGrowthStage } from '../utils/growth';
+import * as api from '../utils/api';
 
 interface HabitContextValue {
   habits: Habit[];
@@ -23,6 +19,7 @@ interface HabitContextValue {
   plantStates: PlantState[];
   settings: UserSettings;
   customFrequencies: CustomFrequency[];
+  loading: boolean;
 
   addHabit: (data: { name: string; emoji: string; color: PlantColor; frequency: Frequency; description?: string; customDays?: number[] }) => void;
   editHabit: (id: string, updates: Partial<Habit>) => void;
@@ -34,186 +31,116 @@ interface HabitContextValue {
   getTodayProgress: () => { done: number; total: number };
   isCompletedToday: (habitId: string) => boolean;
   getTodayHabits: () => Habit[];
-  setState: (state: AppState) => void;
+  resetData: () => void;
 }
 
 const HabitContext = createContext<HabitContextValue | null>(null);
 
 export function HabitProvider({ children }: { children: ReactNode }) {
-  const [state, setStateRaw] = useState<AppState>(loadState);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [completions, setCompletions] = useState<Completion[]>([]);
+  const [plantStates, setPlantStates] = useState<PlantState[]>([]);
+  const [customFrequencies, setCustomFrequencies] = useState<CustomFrequency[]>([]);
+  const [settings, setSettings] = useState<UserSettings>({ theme: 'system' });
+  const [loading, setLoading] = useState(true);
 
+  // Load initial state from API
   useEffect(() => {
-    saveState(state);
-  }, [state]);
-
-  const setState = useCallback((newState: AppState) => {
-    setStateRaw(newState);
+    api.fetchFullState().then((state) => {
+      setHabits(state.habits);
+      setCompletions(state.completions);
+      setPlantStates(state.plantStates);
+      setCustomFrequencies(state.customFrequencies);
+      setSettings(state.settings as UserSettings);
+      setLoading(false);
+    }).catch((err) => {
+      console.error('Failed to load state from API:', err);
+      setLoading(false);
+    });
   }, []);
 
-  const activeHabits = state.habits.filter((h) => !h.archivedAt);
+  const refreshState = useCallback(async () => {
+    try {
+      const state = await api.fetchFullState();
+      setHabits(state.habits);
+      setCompletions(state.completions);
+      setPlantStates(state.plantStates);
+      setCustomFrequencies(state.customFrequencies);
+      setSettings(state.settings as UserSettings);
+    } catch (err) {
+      console.error('Failed to refresh state:', err);
+    }
+  }, []);
 
   const addHabit = useCallback(
     (data: { name: string; emoji: string; color: PlantColor; frequency: Frequency; description?: string; customDays?: number[] }) => {
-      const id = uuidv4();
-      const habit: Habit = {
-        id,
-        name: data.name,
-        emoji: data.emoji,
-        color: data.color,
-        frequency: data.frequency,
-        description: data.description,
-        createdAt: new Date().toISOString(),
-      };
-      const plantState: PlantState = {
-        habitId: id,
-        stage: GrowthStage.Seed,
-        growthPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        lastCompletedDate: null,
-      };
-      setStateRaw((prev) => {
-        const newState = {
-          ...prev,
-          habits: [...prev.habits, habit],
-          plantStates: [...prev.plantStates, plantState],
-        };
-        if (data.frequency === 'custom' && data.customDays) {
-          newState.customFrequencies = [
-            ...prev.customFrequencies,
-            { habitId: id, days: data.customDays },
-          ];
-        }
-        return newState;
-      });
+      api.createHabit(data).then(() => refreshState());
     },
-    [],
+    [refreshState],
   );
 
   const editHabit = useCallback((id: string, updates: Partial<Habit>) => {
-    setStateRaw((prev) => ({
-      ...prev,
-      habits: prev.habits.map((h) => (h.id === id ? { ...h, ...updates } : h)),
-    }));
-  }, []);
+    api.updateHabit(id, updates).then(() => refreshState());
+  }, [refreshState]);
 
   const archiveHabit = useCallback((id: string) => {
-    setStateRaw((prev) => ({
-      ...prev,
-      habits: prev.habits.map((h) =>
-        h.id === id ? { ...h, archivedAt: new Date().toISOString() } : h,
-      ),
-    }));
-  }, []);
+    api.archiveHabit(id).then(() => refreshState());
+  }, [refreshState]);
 
   const toggleCompletion = useCallback(
     (habitId: string, date?: string) => {
       const targetDate = date || todayStr();
-      const existing = state.completions.find(
+
+      // Optimistic UI: check if already completed
+      const existing = completions.find(
         (c) => c.habitId === habitId && c.date === targetDate,
       );
 
       if (existing) {
-        setStateRaw((prev) => {
-          const newCompletions = prev.completions.filter(
-            (c) => !(c.habitId === habitId && c.date === targetDate),
-          );
-          const habit = prev.habits.find((h) => h.id === habitId);
-          const customFreq = prev.customFrequencies.find((cf) => cf.habitId === habitId);
-          const streakInfo = calculateStreak(
-            newCompletions.filter((c) => c.habitId === habitId),
-            habit?.frequency || 'daily',
-            customFreq?.days,
-          );
-          const plantState = prev.plantStates.find((p) => p.habitId === habitId);
-          const newPoints = Math.max(0, (plantState?.growthPoints || 0) - 1);
-          const newStage = calculateGrowthStage(newPoints);
-
-          return {
-            ...prev,
-            completions: newCompletions,
-            plantStates: prev.plantStates.map((p) =>
-              p.habitId === habitId
-                ? {
-                    ...p,
-                    growthPoints: newPoints,
-                    stage: newStage,
-                    currentStreak: streakInfo.current,
-                    longestStreak: streakInfo.longest,
-                    lastCompletedDate: newCompletions
-                      .filter((c) => c.habitId === habitId)
-                      .sort((a, b) => b.date.localeCompare(a.date))[0]?.date || null,
-                  }
-                : p,
-            ),
-          };
-        });
+        // Optimistically remove
+        setCompletions((prev) => prev.filter(
+          (c) => !(c.habitId === habitId && c.date === targetDate),
+        ));
+        api.toggleCompletion(habitId, targetDate).then(() => refreshState());
         return null;
       }
 
-      const completion: Completion = {
+      // Optimistically add
+      setCompletions((prev) => [...prev, {
         habitId,
         date: targetDate,
         completedAt: new Date().toISOString(),
-      };
+      }]);
 
-      let pointsEarned = 0;
-      let newStage = false;
-      let multiplier = 1;
-
-      setStateRaw((prev) => {
-        const newCompletions = [...prev.completions, completion];
-        const habit = prev.habits.find((h) => h.id === habitId);
-        const customFreq = prev.customFrequencies.find((cf) => cf.habitId === habitId);
-        const streakInfo = calculateStreak(
-          newCompletions.filter((c) => c.habitId === habitId),
-          habit?.frequency || 'daily',
-          customFreq?.days,
-        );
-
-        multiplier = getStreakMultiplier(streakInfo.current);
-        pointsEarned = Math.round(1 * multiplier * 10) / 10;
-
-        const plantState = prev.plantStates.find((p) => p.habitId === habitId);
-        const oldStage = plantState?.stage ?? GrowthStage.Seed;
-        const newPoints = (plantState?.growthPoints || 0) + pointsEarned;
-        const calculatedStage = calculateGrowthStage(newPoints);
-        newStage = calculatedStage > oldStage;
-
-        return {
-          ...prev,
-          completions: newCompletions,
-          plantStates: prev.plantStates.map((p) =>
-            p.habitId === habitId
-              ? {
-                  ...p,
-                  growthPoints: newPoints,
-                  stage: calculatedStage,
-                  currentStreak: streakInfo.current,
-                  longestStreak: streakInfo.longest,
-                  lastCompletedDate: targetDate,
-                }
-              : p,
-          ),
-        };
+      // Fire API call and refresh for accurate server state
+      let result: { pointsEarned: number; newStage: boolean; multiplier: number } | null = null;
+      api.toggleCompletion(habitId, targetDate).then((res) => {
+        if (!res.removed) {
+          result = {
+            pointsEarned: res.pointsEarned || 0,
+            newStage: res.newStage || false,
+            multiplier: res.multiplier || 1,
+          };
+        }
+        refreshState();
       });
 
-      return { pointsEarned, newStage, multiplier };
+      // Return optimistic result (stage detection happens server-side,
+      // but we return a basic result for immediate UI feedback)
+      return { pointsEarned: 1, newStage: false, multiplier: 1 };
     },
-    [state.completions],
+    [completions, refreshState],
   );
 
   const updateSettings = useCallback((updates: Partial<UserSettings>) => {
-    setStateRaw((prev) => ({
-      ...prev,
-      settings: { ...prev.settings, ...updates },
-    }));
+    setSettings((prev) => ({ ...prev, ...updates }));
+    api.updateSettings(updates);
   }, []);
 
   const getPlantState = useCallback(
     (habitId: string): PlantState => {
       return (
-        state.plantStates.find((p) => p.habitId === habitId) || {
+        plantStates.find((p) => p.habitId === habitId) || {
           habitId,
           stage: GrowthStage.Seed,
           growthPoints: 0,
@@ -223,49 +150,61 @@ export function HabitProvider({ children }: { children: ReactNode }) {
         }
       );
     },
-    [state.plantStates],
+    [plantStates],
   );
 
   const getStreakInfo = useCallback(
     (habitId: string) => {
-      const habit = state.habits.find((h) => h.id === habitId);
-      const customFreq = state.customFrequencies.find((cf) => cf.habitId === habitId);
-      const habitCompletions = state.completions.filter((c) => c.habitId === habitId);
-      return calculateStreak(habitCompletions, habit?.frequency || 'daily', customFreq?.days);
+      const plant = plantStates.find((p) => p.habitId === habitId);
+      return {
+        current: plant?.currentStreak || 0,
+        longest: plant?.longestStreak || 0,
+      };
     },
-    [state.habits, state.completions, state.customFrequencies],
+    [plantStates],
   );
 
   const isCompletedToday = useCallback(
     (habitId: string) => {
       const today = todayStr();
-      return state.completions.some((c) => c.habitId === habitId && c.date === today);
+      return completions.some((c) => c.habitId === habitId && c.date === today);
     },
-    [state.completions],
+    [completions],
   );
 
   const getTodayHabits = useCallback(() => {
-    return activeHabits;
-  }, [activeHabits]);
+    return habits;
+  }, [habits]);
 
   const getTodayProgress = useCallback(() => {
     const today = todayStr();
-    const todayCompletions = state.completions.filter((c) => c.date === today);
-    const total = activeHabits.length;
-    const done = activeHabits.filter((h) =>
+    const todayCompletions = completions.filter((c) => c.date === today);
+    const total = habits.length;
+    const done = habits.filter((h) =>
       todayCompletions.some((c) => c.habitId === h.id),
     ).length;
     return { done, total };
-  }, [state.completions, activeHabits]);
+  }, [completions, habits]);
+
+  const resetData = useCallback(() => {
+    api.resetState().then(() => {
+      setHabits([]);
+      setCompletions([]);
+      setPlantStates([]);
+      setCustomFrequencies([]);
+      setSettings({ theme: 'system' });
+    });
+  }, []);
 
   return (
     <HabitContext.Provider
       value={{
-        habits: activeHabits,
-        completions: state.completions,
-        plantStates: state.plantStates,
-        settings: state.settings,
-        customFrequencies: state.customFrequencies,
+        habits,
+        completions,
+        plantStates,
+        settings,
+        customFrequencies,
+        loading,
         addHabit,
         editHabit,
         archiveHabit,
@@ -276,7 +215,7 @@ export function HabitProvider({ children }: { children: ReactNode }) {
         getTodayProgress,
         isCompletedToday,
         getTodayHabits,
-        setState,
+        resetData,
       }}
     >
       {children}

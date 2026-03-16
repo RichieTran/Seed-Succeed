@@ -2,22 +2,28 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useHabits } from '../context/HabitContext';
 import type { UserSettings } from '../types';
-import { exportData, importData, resetData } from '../utils/storage';
+import * as api from '../utils/api';
 
 export function SettingsView() {
-  const { settings, updateSettings, setState } = useHabits();
+  const { settings, updateSettings, resetData } = useHabits();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
-  const handleExport = () => {
-    const data = exportData();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `seed-succeed-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    try {
+      const state = await api.fetchFullState();
+      const data = JSON.stringify(state, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `seed-succeed-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setImportStatus('Export failed');
+      setTimeout(() => setImportStatus(null), 3000);
+    }
   };
 
   const handleImport = () => {
@@ -28,11 +34,9 @@ export function SettingsView() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = () => {
         try {
-          const newState = importData(ev.target?.result as string);
-          setState(newState);
-          setImportStatus('Data imported successfully!');
+          setImportStatus('Import not yet supported with SQLite backend');
           setTimeout(() => setImportStatus(null), 3000);
         } catch {
           setImportStatus('Invalid file format');
@@ -45,8 +49,7 @@ export function SettingsView() {
   };
 
   const handleReset = () => {
-    const newState = resetData();
-    setState(newState);
+    resetData();
     setShowResetConfirm(false);
   };
 
@@ -126,7 +129,7 @@ export function SettingsView() {
             Build consistency, watch your garden flourish, and maintain streaks for
             bonus growth!
           </p>
-          <p className="text-xs text-gray-300 mt-3">Version 1.0.0</p>
+          <p className="text-xs text-gray-300 mt-3">Version 1.0.0 — SQLite Backend</p>
         </div>
       </div>
 

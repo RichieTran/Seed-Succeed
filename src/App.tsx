@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { View } from './types';
-import { HabitProvider } from './context/HabitContext';
+import { HabitProvider, useHabits } from './context/HabitContext';
 import { Header } from './components/layout/Header';
 import { BottomNav } from './components/layout/BottomNav';
 import { GardenView } from './views/GardenView';
@@ -11,6 +11,7 @@ import { SettingsView } from './views/SettingsView';
 import { PlantPreview } from './views/PlantPreview';
 
 function AppContent() {
+  const { loading } = useHabits();
   const [view, setView] = useState<View>({ name: 'garden' });
   const [showPreview, setShowPreview] = useState(false);
 
@@ -21,6 +22,14 @@ function AppContent() {
   const handleBack = () => {
     setView({ name: 'garden' });
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-dvh bg-white items-center justify-center">
+        <p className="text-gray-400 text-sm">Loading your garden...</p>
+      </div>
+    );
+  }
 
   if (showPreview) {
     return (

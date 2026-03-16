@@ -113,15 +113,7 @@ export function HabitProvider({ children }: { children: ReactNode }) {
       }]);
 
       // Fire API call and refresh for accurate server state
-      let result: { pointsEarned: number; newStage: boolean; multiplier: number } | null = null;
-      api.toggleCompletion(habitId, targetDate).then((res) => {
-        if (!res.removed) {
-          result = {
-            pointsEarned: res.pointsEarned || 0,
-            newStage: res.newStage || false,
-            multiplier: res.multiplier || 1,
-          };
-        }
+      api.toggleCompletion(habitId, targetDate).then(() => {
         refreshState();
       });
 

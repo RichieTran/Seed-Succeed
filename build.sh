@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Build script for Render deployment
 set -e
 
 # Install Node dependencies and build React frontend
